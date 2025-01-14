@@ -1,5 +1,5 @@
 declare module 'lamejs';
+declare module 'lamejs/src/js/MPEGMode';
+declare module 'lamejs/src/js/Lame';
+declare module 'lamejs/src/js/BitStream';
 declare module 'react-18-input-autosize';
-declare module 'fetch-readablestream' {
-  export default function fetchReadableStream(url: string, options?: RequestInit): Promise<Response>
-}

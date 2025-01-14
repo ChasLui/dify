@@ -1,63 +1,45 @@
 'use client'
 import type { FC, SVGProps } from 'react'
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useTranslation } from 'react-i18next'
+import { useBoolean } from 'ahooks'
 import {
   Cog8ToothIcon,
-  // CommandLineIcon,
-  Squares2X2Icon,
-  // eslint-disable-next-line sort-imports
-  PuzzlePieceIcon,
   DocumentTextIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline'
 import {
   Cog8ToothIcon as Cog8ToothSolidIcon,
   // CommandLineIcon as CommandLineSolidIcon,
   DocumentTextIcon as DocumentTextSolidIcon,
 } from '@heroicons/react/24/solid'
-import Link from 'next/link'
+import { RiApps2AddLine, RiInformation2Line } from '@remixicon/react'
 import s from './style.module.css'
+import classNames from '@/utils/classnames'
 import { fetchDatasetDetail, fetchDatasetRelatedApps } from '@/service/datasets'
-import type { RelatedApp } from '@/models/datasets'
-import { getLocaleOnClient } from '@/i18n/client'
+import type { RelatedAppResponse } from '@/models/datasets'
 import AppSideBar from '@/app/components/app-sidebar'
-import Divider from '@/app/components/base/divider'
-import Indicator from '@/app/components/header/indicator'
-import AppIcon from '@/app/components/base/app-icon'
 import Loading from '@/app/components/base/loading'
 import DatasetDetailContext from '@/context/dataset-detail'
 import { DataSourceType } from '@/models/datasets'
+import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
+import { LanguagesSupported } from '@/i18n/language'
+import { useStore } from '@/app/components/app/store'
+import { getLocaleOnClient } from '@/i18n'
+import { useAppContext } from '@/context/app-context'
+import Tooltip from '@/app/components/base/tooltip'
+import LinkedAppsPanel from '@/app/components/base/linked-apps-panel'
 
 export type IAppDetailLayoutProps = {
   children: React.ReactNode
   params: { datasetId: string }
 }
 
-const LikedItem: FC<{ type?: 'plugin' | 'app'; appStatus?: boolean; detail: RelatedApp }> = ({
-  type = 'app',
-  appStatus = true,
-  detail,
-}) => {
-  return (
-    <Link className={s.itemWrapper} href={`/app/${detail?.id}/overview`}>
-      <div className={s.iconWrapper}>
-        <AppIcon size='tiny' icon={detail?.icon} background={detail?.icon_background}/>
-        {type === 'app' && (
-          <div className={s.statusPoint}>
-            <Indicator color={appStatus ? 'green' : 'gray'} />
-          </div>
-        )}
-      </div>
-      <div className={s.appInfo}>{detail?.name || '--'}</div>
-    </Link>
-  )
-}
-
 const TargetIcon = ({ className }: SVGProps<SVGElement>) => {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className ?? ''}>
-    <g clip-path="url(#clip0_4610_6951)">
+    <g clipPath="url(#clip0_4610_6951)">
       <path d="M10.6666 5.33325V3.33325L12.6666 1.33325L13.3332 2.66659L14.6666 3.33325L12.6666 5.33325H10.6666ZM10.6666 5.33325L7.9999 7.99988M14.6666 7.99992C14.6666 11.6818 11.6818 14.6666 7.99992 14.6666C4.31802 14.6666 1.33325 11.6818 1.33325 7.99992C1.33325 4.31802 4.31802 1.33325 7.99992 1.33325M11.3333 7.99992C11.3333 9.84087 9.84087 11.3333 7.99992 11.3333C6.15897 11.3333 4.66659 9.84087 4.66659 7.99992C4.66659 6.15897 6.15897 4.66659 7.99992 4.66659" stroke="#344054" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
     </g>
     <defs>
@@ -83,6 +65,87 @@ const BookOpenIcon = ({ className }: SVGProps<SVGElement>) => {
   </svg>
 }
 
+type IExtraInfoProps = {
+  isMobile: boolean
+  relatedApps?: RelatedAppResponse
+  expand: boolean
+}
+
+const ExtraInfo = ({ isMobile, relatedApps, expand }: IExtraInfoProps) => {
+  const locale = getLocaleOnClient()
+  const [isShowTips, { toggle: toggleTips, set: setShowTips }] = useBoolean(!isMobile)
+  const { t } = useTranslation()
+
+  const hasRelatedApps = relatedApps?.data && relatedApps?.data?.length > 0
+  const relatedAppsTotal = relatedApps?.data?.length || 0
+
+  useEffect(() => {
+    setShowTips(!isMobile)
+  }, [isMobile, setShowTips])
+
+  return <div>
+    {hasRelatedApps && (
+      <>
+        {!isMobile && (
+          <Tooltip
+            position='right'
+            noDecoration
+            needsDelay
+            popupContent={
+              <LinkedAppsPanel
+                relatedApps={relatedApps.data}
+                isMobile={isMobile}
+              />
+            }
+          >
+            <div className='inline-flex items-center system-xs-medium-uppercase text-text-secondary space-x-1 cursor-pointer'>
+              <span>{relatedAppsTotal || '--'} {t('common.datasetMenus.relatedApp')}</span>
+              <RiInformation2Line className='w-4 h-4' />
+            </div>
+          </Tooltip>
+        )}
+
+        {isMobile && <div className={classNames(s.subTitle, 'flex items-center justify-center !px-0 gap-1')}>
+          {relatedAppsTotal || '--'}
+          <PaperClipIcon className='h-4 w-4 text-gray-700' />
+        </div>}
+      </>
+    )}
+    {!hasRelatedApps && !expand && (
+      <Tooltip
+        position='right'
+        noDecoration
+        needsDelay
+        popupContent={
+          <div className='p-4 w-[240px] bg-components-panel-bg-blur border-[0.5px] border-components-panel-border rounded-xl'>
+            <div className='inline-flex p-2 rounded-lg border-[0.5px] border-components-panel-border-subtle bg-background-default-subtle'>
+              <RiApps2AddLine className='h-4 w-4 text-text-tertiary' />
+            </div>
+            <div className='text-xs text-text-tertiary my-2'>{t('common.datasetMenus.emptyTip')}</div>
+            <a
+              className='inline-flex items-center text-xs text-text-accent mt-2 cursor-pointer'
+              href={
+                locale === LanguagesSupported[1]
+                  ? 'https://docs.dify.ai/v/zh-hans/guides/knowledge-base/integrate-knowledge-within-application'
+                  : 'https://docs.dify.ai/guides/knowledge-base/integrate-knowledge-within-application'
+              }
+              target='_blank' rel='noopener noreferrer'
+            >
+              <BookOpenIcon className='mr-1' />
+              {t('common.datasetMenus.viewDoc')}
+            </a>
+          </div>
+        }
+      >
+        <div className='inline-flex items-center system-xs-medium-uppercase text-text-secondary space-x-1 cursor-pointer'>
+          <span>{t('common.datasetMenus.noRelatedApp')}</span>
+          <RiInformation2Line className='w-4 h-4' />
+        </div>
+      </Tooltip>
+    )}
+  </div>
+}
+
 const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
   const {
     children,
@@ -91,6 +154,11 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
   const pathname = usePathname()
   const hideSideBar = /documents\/create$/.test(pathname)
   const { t } = useTranslation()
+  const { isCurrentWorkspaceDatasetOperator } = useAppContext()
+
+  const media = useBreakpoints()
+  const isMobile = media === MediaType.mobile
+
   const { data: datasetRes, error, mutate: mutateDatasetRes } = useSWR({
     url: 'fetchDatasetDetail',
     datasetId,
@@ -101,66 +169,50 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     datasetId,
   }, apiParams => fetchDatasetRelatedApps(apiParams.datasetId))
 
-  const navigation = [
-    { name: t('common.datasetMenus.documents'), href: `/datasets/${datasetId}/documents`, icon: DocumentTextIcon, selectedIcon: DocumentTextSolidIcon },
-    { name: t('common.datasetMenus.hitTesting'), href: `/datasets/${datasetId}/hitTesting`, icon: TargetIcon, selectedIcon: TargetSolidIcon },
-    // { name: 'api & webhook', href: `/datasets/${datasetId}/api`, icon: CommandLineIcon, selectedIcon: CommandLineSolidIcon },
-    { name: t('common.datasetMenus.settings'), href: `/datasets/${datasetId}/settings`, icon: Cog8ToothIcon, selectedIcon: Cog8ToothSolidIcon },
-  ]
+  const navigation = useMemo(() => {
+    const baseNavigation = [
+      { name: t('common.datasetMenus.hitTesting'), href: `/datasets/${datasetId}/hitTesting`, icon: TargetIcon, selectedIcon: TargetSolidIcon },
+      // { name: 'api & webhook', href: `/datasets/${datasetId}/api`, icon: CommandLineIcon, selectedIcon: CommandLineSolidIcon },
+      { name: t('common.datasetMenus.settings'), href: `/datasets/${datasetId}/settings`, icon: Cog8ToothIcon, selectedIcon: Cog8ToothSolidIcon },
+    ]
+
+    if (datasetRes?.provider !== 'external') {
+      baseNavigation.unshift({
+        name: t('common.datasetMenus.documents'),
+        href: `/datasets/${datasetId}/documents`,
+        icon: DocumentTextIcon,
+        selectedIcon: DocumentTextSolidIcon,
+      })
+    }
+    return baseNavigation
+  }, [datasetRes?.provider, datasetId, t])
 
   useEffect(() => {
     if (datasetRes)
       document.title = `${datasetRes.name || 'Dataset'} - Dify`
   }, [datasetRes])
 
-  const ExtraInfo: FC = () => {
-    const locale = getLocaleOnClient()
+  const setAppSiderbarExpand = useStore(state => state.setAppSiderbarExpand)
 
-    return <div className='w-full'>
-      <Divider className='mt-5' />
-      {relatedApps?.data?.length
-        ? (
-          <>
-            <div className={s.subTitle}>{relatedApps?.total || '--'} {t('common.datasetMenus.relatedApp')}</div>
-            {relatedApps?.data?.map((item, index) => (<LikedItem key={index} detail={item} />))}
-          </>
-        )
-        : (
-          <div className='mt-5 p-3'>
-            <div className='flex items-center justify-start gap-2'>
-              <div className={s.emptyIconDiv}>
-                <Squares2X2Icon className='w-3 h-3 text-gray-500' />
-              </div>
-              <div className={s.emptyIconDiv}>
-                <PuzzlePieceIcon className='w-3 h-3 text-gray-500' />
-              </div>
-            </div>
-            <div className='text-xs text-gray-500 mt-2'>{t('common.datasetMenus.emptyTip')}</div>
-            <a
-              className='inline-flex items-center text-xs text-primary-600 mt-2 cursor-pointer'
-              href={`https://docs.dify.ai/${locale === 'zh-Hans' ? 'v/zh-hans' : ''}/application/prompt-engineering`}
-              target='_blank'
-            >
-              <BookOpenIcon className='mr-1' />
-              {t('common.datasetMenus.viewDoc')}
-            </a>
-          </div>
-        )}
-    </div>
-  }
+  useEffect(() => {
+    const localeMode = localStorage.getItem('app-detail-collapse-or-expand') || 'expand'
+    const mode = isMobile ? 'collapse' : 'expand'
+    setAppSiderbarExpand(isMobile ? mode : localeMode)
+  }, [isMobile, setAppSiderbarExpand])
 
   if (!datasetRes && !error)
-    return <Loading />
+    return <Loading type='app' />
 
   return (
-    <div className='flex'>
+    <div className='grow flex overflow-hidden'>
       {!hideSideBar && <AppSideBar
         title={datasetRes?.name || '--'}
         icon={datasetRes?.icon || 'https://static.dify.ai/images/dataset-default-icon.png'}
         icon_background={datasetRes?.icon_background || '#F5F5F5'}
         desc={datasetRes?.description || '--'}
+        isExternal={datasetRes?.provider === 'external'}
         navigation={navigation}
-        extraInfo={<ExtraInfo />}
+        extraInfo={!isCurrentWorkspaceDatasetOperator ? mode => <ExtraInfo isMobile={mode === 'collapse'} relatedApps={relatedApps} expand={mode === 'collapse'} /> : undefined}
         iconType={datasetRes?.data_source_type === DataSourceType.NOTION ? 'notion' : 'dataset'}
       />}
       <DatasetDetailContext.Provider value={{
@@ -168,7 +220,7 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
         dataset: datasetRes,
         mutateDatasetRes: () => mutateDatasetRes(),
       }}>
-        <div className="bg-white grow" style={{ minHeight: 'calc(100vh - 56px)' }}>{children}</div>
+        <div className="bg-background-default-subtle grow overflow-hidden">{children}</div>
       </DatasetDetailContext.Provider>
     </div>
   )

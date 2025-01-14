@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { clone } from 'lodash-es'
 import produce from 'immer'
-import type { ChatPromptConfig, CompletionParams, CompletionPromptConfig, ConversationHistoriesRole, PromptItem } from '@/models/debug'
+import type { ChatPromptConfig, CompletionPromptConfig, ConversationHistoriesRole, PromptItem } from '@/models/debug'
 import { PromptMode } from '@/models/debug'
-import { AppType, ModelModeType } from '@/types/app'
+import { ModelModeType } from '@/types/app'
 import { DEFAULT_CHAT_PROMPT_CONFIG, DEFAULT_COMPLETION_PROMPT_CONFIG } from '@/config'
 import { PRE_PROMPT_PLACEHOLDER_TEXT, checkHasContextBlock, checkHasHistoryBlock, checkHasQueryBlock } from '@/app/components/base/prompt-editor/constants'
 import { fetchPromptTemplate } from '@/service/debug'
+import type { FormValue } from '@/app/components/header/account-setting/model-provider-page/declarations'
 
 type Param = {
   appMode: string
@@ -16,8 +17,8 @@ type Param = {
   prePrompt: string
   onUserChangedPrompt: () => void
   hasSetDataSet: boolean
-  completionParams: CompletionParams
-  setCompletionParams: (params: CompletionParams) => void
+  completionParams: FormValue
+  setCompletionParams: (params: FormValue) => void
   setStop: (stop: string[]) => void
 }
 
@@ -87,7 +88,7 @@ const useAdvancedPromptConfig = ({
       }
     }
     else {
-      const prompt = completionPromptConfig.prompt.text
+      const prompt = completionPromptConfig.prompt?.text
       return {
         context: checkHasContextBlock(prompt),
         history: checkHasHistoryBlock(prompt),
@@ -145,13 +146,13 @@ const useAdvancedPromptConfig = ({
 
       if (toModelModeType === ModelModeType.completion) {
         const newPromptConfig = produce(completion_prompt_config, (draft) => {
-          if (!completionPromptConfig.prompt.text)
+          if (!completionPromptConfig.prompt?.text)
             draft.prompt.text = draft.prompt.text.replace(PRE_PROMPT_PLACEHOLDER_TEXT, toReplacePrePrompt)
 
           else
-            draft.prompt.text = completionPromptConfig.prompt.text.replace(PRE_PROMPT_PLACEHOLDER_TEXT, toReplacePrePrompt)
+            draft.prompt.text = completionPromptConfig.prompt?.text.replace(PRE_PROMPT_PLACEHOLDER_TEXT, toReplacePrePrompt)
 
-          if (appMode === AppType.chat && completionPromptConfig.conversation_histories_role.assistant_prefix && completionPromptConfig.conversation_histories_role.user_prefix)
+          if (['advanced-chat', 'agent-chat', 'chat'].includes(appMode) && completionPromptConfig.conversation_histories_role.assistant_prefix && completionPromptConfig.conversation_histories_role.user_prefix)
             draft.conversation_histories_role = completionPromptConfig.conversation_histories_role
         })
         setCompletionPromptConfig(newPromptConfig)

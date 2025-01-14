@@ -1,16 +1,16 @@
 'use client'
 import type { FC } from 'react'
 import React, { useRef, useState } from 'react'
-import { useClickAway } from 'ahooks'
 import { useTranslation } from 'react-i18next'
+import { RiCloseLine } from '@remixicon/react'
 import Toast from '../../base/toast'
-import { XClose } from '@/app/components/base/icons/src/vender/line/general'
+import { ModelTypeEnum } from '../../header/account-setting/model-provider-page/declarations'
 import type { RetrievalConfig } from '@/types/app'
 import RetrievalMethodConfig from '@/app/components/datasets/common/retrieval-method-config'
 import EconomicalRetrievalMethodConfig from '@/app/components/datasets/common/economical-retrieval-method-config'
 import Button from '@/app/components/base/button'
-import { useProviderContext } from '@/context/provider-context'
-import { ensureRerankModelSelected, isReRankModelSelected } from '@/app/components/datasets/common/check-rerank-model'
+import { isReRankModelSelected } from '@/app/components/datasets/common/check-rerank-model'
+import { useModelListAndDefaultModelAndCurrentProviderAndModel } from '@/app/components/header/account-setting/model-provider-page/hooks'
 
 type Props = {
   indexMethod: string
@@ -31,22 +31,18 @@ const ModifyRetrievalModal: FC<Props> = ({
   const { t } = useTranslation()
   const [retrievalConfig, setRetrievalConfig] = useState(value)
 
-  useClickAway(() => {
-    if (ref)
-      onHide()
-  }, ref)
+  // useClickAway(() => {
+  //   if (ref)
+  //     onHide()
+  // }, ref)
 
   const {
-    rerankDefaultModel,
-    isRerankDefaultModelVaild,
-    rerankModelList,
-  } = useProviderContext()
+    modelList: rerankModelList,
+  } = useModelListAndDefaultModelAndCurrentProviderAndModel(ModelTypeEnum.rerank)
 
   const handleSave = () => {
     if (
       !isReRankModelSelected({
-        rerankDefaultModel,
-        isRerankDefaultModelVaild,
         rerankModelList,
         retrievalConfig,
         indexMethod,
@@ -55,11 +51,7 @@ const ModifyRetrievalModal: FC<Props> = ({
       Toast.notify({ type: 'error', message: t('appDebug.datasetConfig.rerankModelRequired') })
       return
     }
-    onSave(ensureRerankModelSelected({
-      rerankDefaultModel: rerankDefaultModel!,
-      retrievalConfig,
-      indexMethod,
-    }))
+    onSave(retrievalConfig)
   }
 
   if (!isShow)
@@ -67,9 +59,8 @@ const ModifyRetrievalModal: FC<Props> = ({
 
   return (
     <div
-      className='fixed top-16 right-2 flex flex-col bg-white border-[0.5px] border-gray-200 rounded-xl shadow-xl z-10'
+      className='w-full flex flex-col bg-white border-[0.5px] border-gray-200 rounded-xl shadow-xl'
       style={{
-        width: 632,
         height: 'calc(100vh - 72px)',
       }}
       ref={ref}
@@ -78,7 +69,7 @@ const ModifyRetrievalModal: FC<Props> = ({
         <div className='text-base font-semibold text-gray-900'>
           <div>{t('datasetSettings.form.retrievalSetting.title')}</div>
           <div className='leading-[18px] text-xs font-normal text-gray-500'>
-            <a target='_blank' href='https://docs.dify.ai/advanced/retrieval-augment' className='text-[#155eef]'>{t('datasetSettings.form.retrievalSetting.learnMore')}</a>
+            <a target='_blank' rel='noopener noreferrer' href='https://docs.dify.ai/guides/knowledge-base/create-knowledge-and-upload-documents#id-4-retrieval-settings' className='text-text-accent'>{t('datasetSettings.form.retrievalSetting.learnMore')}</a>
             {t('datasetSettings.form.retrievalSetting.description')}
           </div>
         </div>
@@ -87,7 +78,7 @@ const ModifyRetrievalModal: FC<Props> = ({
             onClick={onHide}
             className='flex justify-center items-center w-6 h-6 cursor-pointer'
           >
-            <XClose className='w-4 h-4 text-gray-500' />
+            <RiCloseLine className='w-4 h-4 text-gray-500' />
           </div>
         </div>
       </div>
@@ -116,7 +107,7 @@ const ModifyRetrievalModal: FC<Props> = ({
         }}
       >
         <Button className='mr-2 flex-shrink-0' onClick={onHide}>{t('common.operation.cancel')}</Button>
-        <Button type='primary' className='flex-shrink-0' onClick={handleSave} >{t('common.operation.save')}</Button>
+        <Button variant='primary' className='flex-shrink-0' onClick={handleSave} >{t('common.operation.save')}</Button>
       </div>
     </div>
   )

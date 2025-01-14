@@ -1,5 +1,6 @@
 'use client'
-import classNames from 'classnames'
+import type { PropsWithChildren } from 'react'
+import classNames from '@/utils/classnames'
 
 type IChildrenProps = {
   children: React.ReactNode
@@ -22,23 +23,24 @@ export const Heading = function H2({
   title,
   name,
 }: IHeaderingProps) {
-  let style = '';
+  let style = ''
   switch (method) {
     case 'PUT':
-      style = 'ring-amber-300 bg-amber-400/10 text-amber-500 dark:ring-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400';
-      break;
+      style = 'ring-amber-300 bg-amber-400/10 text-amber-500 dark:ring-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400'
+      break
     case 'DELETE':
-      style = 'ring-rose-200 bg-rose-50 text-red-500 dark:ring-rose-500/20 dark:bg-rose-400/10 dark:text-rose-400';
-      break;
+      style = 'ring-rose-200 bg-rose-50 text-red-500 dark:ring-rose-500/20 dark:bg-rose-400/10 dark:text-rose-400'
+      break
     case 'POST':
-      style = 'ring-sky-300 bg-sky-400/10 text-sky-500 dark:ring-sky-400/30 dark:bg-sky-400/10 dark:text-sky-400';
-      break;
+      style = 'ring-sky-300 bg-sky-400/10 text-sky-500 dark:ring-sky-400/30 dark:bg-sky-400/10 dark:text-sky-400'
+      break
     default:
-      style = 'ring-emerald-300 dark:ring-emerald-400/30 bg-emerald-400/10 text-emerald-500 dark:text-emerald-400';
-      break;
+      style = 'ring-emerald-300 dark:ring-emerald-400/30 bg-emerald-400/10 text-emerald-500 dark:text-emerald-400'
+      break
   }
   return (
     <>
+      <span id={name?.replace(/^#/, '')} className='relative -top-28' />
       <div className="flex items-center gap-x-3" >
         <span className={`font-mono text-[0.625rem] font-semibold leading-6 rounded-lg px-1.5 ring-1 ring-inset ${style}`}>{method}</span>
         {/* <span className="h-0.5 w-0.5 rounded-full bg-zinc-300 dark:bg-zinc-600"></span> */}
@@ -136,5 +138,11 @@ export function SubProperty({ name, type, children }: ISubProperty) {
         </dd>
       </dl>
     </li>
+  )
+}
+
+export function PropertyInstruction({ children }: PropsWithChildren<{}>) {
+  return (
+    <li className="m-0 px-0 py-4 first:pt-0 italic">{children}</li>
   )
 }

@@ -1,92 +1,68 @@
 'use client'
-import type { FC } from 'react'
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useContext } from 'use-context-selector'
-import cn from 'classnames'
-import { Settings04 } from '@/app/components/base/icons/src/vender/line/general'
+import { RiEqualizer2Line } from '@remixicon/react'
+import ConfigContent from './config-content'
+import cn from '@/utils/classnames'
 import ConfigContext from '@/context/debug-configuration'
-import TopKItem from '@/app/components/base/param-item/top-k-item'
-import ScoreThresholdItem from '@/app/components/base/param-item/score-threshold-item'
 import Modal from '@/app/components/base/modal'
 import Button from '@/app/components/base/button'
-import RadioCard from '@/app/components/base/radio-card/simple'
 import { RETRIEVE_TYPE } from '@/types/app'
-import ModelSelector from '@/app/components/header/account-setting/model-page/model-selector'
-import { useProviderContext } from '@/context/provider-context'
-import { ModelType } from '@/app/components/header/account-setting/model-page/declarations'
 import Toast from '@/app/components/base/toast'
-import { DATASET_DEFAULT } from '@/config'
+import { useCurrentProviderAndModel, useModelListAndDefaultModelAndCurrentProviderAndModel } from '@/app/components/header/account-setting/model-provider-page/hooks'
+import { ModelTypeEnum } from '@/app/components/header/account-setting/model-provider-page/declarations'
+import { RerankingModeEnum } from '@/models/datasets'
+import type { DataSet } from '@/models/datasets'
+import type { DatasetConfigs } from '@/models/debug'
 import {
-  MultiPathRetrieval,
-  NTo1Retrieval,
-} from '@/app/components/base/icons/src/public/common'
+  getMultipleRetrievalConfig,
+} from '@/app/components/workflow/nodes/knowledge-retrieval/utils'
 
-const ParamsConfig: FC = () => {
+type ParamsConfigProps = {
+  disabled?: boolean
+  selectedDatasets: DataSet[]
+}
+const ParamsConfig = ({
+  disabled,
+  selectedDatasets,
+}: ParamsConfigProps) => {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
   const {
     datasetConfigs,
     setDatasetConfigs,
+    rerankSettingModalOpen,
+    setRerankSettingModalOpen,
   } = useContext(ConfigContext)
   const [tempDataSetConfigs, setTempDataSetConfigs] = useState(datasetConfigs)
 
-  const type = tempDataSetConfigs.retrieval_model
-  const setType = (value: RETRIEVE_TYPE) => {
-    setTempDataSetConfigs({
-      ...tempDataSetConfigs,
-      retrieval_model: value,
-    })
-  }
+  useEffect(() => {
+    setTempDataSetConfigs(datasetConfigs)
+  }, [datasetConfigs])
 
   const {
-    rerankDefaultModel,
-    isRerankDefaultModelVaild,
-  } = useProviderContext()
+    modelList: rerankModelList,
+    currentModel: rerankDefaultModel,
+    currentProvider: rerankDefaultProvider,
+  } = useModelListAndDefaultModelAndCurrentProviderAndModel(ModelTypeEnum.rerank)
 
-  const rerankModel = (() => {
-    if (tempDataSetConfigs.reranking_model) {
-      return {
-        provider_name: tempDataSetConfigs.reranking_model.reranking_provider_name,
-        model_name: tempDataSetConfigs.reranking_model.reranking_model_name,
-      }
-    }
-    else if (rerankDefaultModel) {
-      return {
-        provider_name: rerankDefaultModel.model_provider.provider_name,
-        model_name: rerankDefaultModel.model_name,
-      }
-    }
-  })()
+  const {
+    currentModel: isCurrentRerankModelValid,
+  } = useCurrentProviderAndModel(
+    rerankModelList,
+    {
+      provider: tempDataSetConfigs.reranking_model?.reranking_provider_name ?? '',
+      model: tempDataSetConfigs.reranking_model?.reranking_model_name ?? '',
+    },
+  )
 
-  const handleParamChange = (key: string, value: number) => {
-    if (key === 'top_k') {
-      setTempDataSetConfigs({
-        ...tempDataSetConfigs,
-        top_k: value,
-      })
-    }
-    else if (key === 'score_threshold') {
-      setTempDataSetConfigs({
-        ...tempDataSetConfigs,
-        score_threshold: value,
-      })
-    }
-  }
-
-  const handleSwitch = (key: string, enable: boolean) => {
-    if (key === 'top_k')
-      return
-
-    setTempDataSetConfigs({
-      ...tempDataSetConfigs,
-      score_threshold_enabled: enable,
-    })
-  }
   const isValid = () => {
     let errMsg = ''
     if (tempDataSetConfigs.retrieval_model === RETRIEVE_TYPE.multiWay) {
-      if (!tempDataSetConfigs.reranking_model?.reranking_model_name && (!rerankDefaultModel && isRerankDefaultModelVaild))
+      if (tempDataSetConfigs.reranking_enable
+        && tempDataSetConfigs.reranking_mode === RerankingModeEnum.RerankingModel
+        && !isCurrentRerankModelValid
+      )
         errMsg = t('appDebug.datasetConfig.rerankModelRequired')
     }
     if (errMsg) {
@@ -100,105 +76,75 @@ const ParamsConfig: FC = () => {
   const handleSave = () => {
     if (!isValid())
       return
+    setDatasetConfigs(tempDataSetConfigs)
+    setRerankSettingModalOpen(false)
+  }
 
-    const config = { ...tempDataSetConfigs }
-    if (config.retrieval_model === RETRIEVE_TYPE.multiWay && !config.reranking_model) {
-      config.reranking_model = {
-        reranking_provider_name: rerankDefaultModel?.model_provider.provider_name,
-        reranking_model_name: rerankDefaultModel?.model_name,
-      } as any
-    }
-    setDatasetConfigs(config)
-    setOpen(false)
+  const handleSetTempDataSetConfigs = (newDatasetConfigs: DatasetConfigs) => {
+    const { datasets, retrieval_model, score_threshold_enabled, ...restConfigs } = newDatasetConfigs
+
+    const retrievalConfig = getMultipleRetrievalConfig({
+      top_k: restConfigs.top_k,
+      score_threshold: restConfigs.score_threshold,
+      reranking_model: restConfigs.reranking_model && {
+        provider: restConfigs.reranking_model.reranking_provider_name,
+        model: restConfigs.reranking_model.reranking_model_name,
+      },
+      reranking_mode: restConfigs.reranking_mode,
+      weights: restConfigs.weights,
+      reranking_enable: restConfigs.reranking_enable,
+    }, selectedDatasets, selectedDatasets, {
+      provider: rerankDefaultProvider?.provider,
+      model: rerankDefaultModel?.model,
+    })
+
+    setTempDataSetConfigs({
+      ...retrievalConfig,
+      reranking_model: {
+        reranking_provider_name: retrievalConfig.reranking_model?.provider || '',
+        reranking_model_name: retrievalConfig.reranking_model?.model || '',
+      },
+      retrieval_model,
+      score_threshold_enabled,
+      datasets,
+    })
   }
 
   return (
     <div>
-      <div
-        className={cn('flex items-center rounded-md h-7 px-3 space-x-1 text-gray-700 cursor-pointer hover:bg-gray-200', open && 'bg-gray-200')}
+      <Button
+        variant='ghost'
+        size='small'
+        className={cn('h-7', rerankSettingModalOpen && 'bg-components-button-ghost-bg-hover')}
         onClick={() => {
-          setTempDataSetConfigs({
-            ...datasetConfigs,
-            top_k: datasetConfigs.top_k || DATASET_DEFAULT.top_k,
-            score_threshold: datasetConfigs.score_threshold || DATASET_DEFAULT.score_threshold,
-          })
-          setOpen(true)
+          setRerankSettingModalOpen(true)
         }}
+        disabled={disabled}
       >
-        <Settings04 className="w-[14px] h-[14px]" />
-        <div className='text-xs font-medium'>
-          {t('appDebug.datasetConfig.params')}
-        </div>
-      </div>
+        <RiEqualizer2Line className='mr-1 w-3.5 h-3.5' />
+        {t('dataset.retrievalSettings')}
+      </Button>
       {
-        open && (
+        rerankSettingModalOpen && (
           <Modal
-            isShow={open}
+            isShow={rerankSettingModalOpen}
             onClose={() => {
-              setOpen(false)
+              setRerankSettingModalOpen(false)
             }}
-            className='min-w-[528px]'
-            wrapperClassName='z-50'
-            title={t('appDebug.datasetConfig.settingTitle')}
+            className='sm:min-w-[528px]'
           >
-            <div className='mt-2 space-y-3'>
-              <RadioCard
-                icon={<NTo1Retrieval className='shrink-0 mr-3 w-9 h-9 rounded-lg' />}
-                title={t('appDebug.datasetConfig.retrieveOneWay.title')}
-                description={t('appDebug.datasetConfig.retrieveOneWay.description')}
-                isChosen={type === RETRIEVE_TYPE.oneWay}
-                onChosen={() => { setType(RETRIEVE_TYPE.oneWay) }}
-              />
-              <RadioCard
-                icon={<MultiPathRetrieval className='shrink-0 mr-3 w-9 h-9 rounded-lg' />}
-                title={t('appDebug.datasetConfig.retrieveMultiWay.title')}
-                description={t('appDebug.datasetConfig.retrieveMultiWay.description')}
-                isChosen={type === RETRIEVE_TYPE.multiWay}
-                onChosen={() => { setType(RETRIEVE_TYPE.multiWay) }}
-              />
-            </div>
-            {type === RETRIEVE_TYPE.multiWay && (
-              <>
-                <div className='mt-6'>
-                  <div className='leading-[32px] text-[13px] font-medium text-gray-900'>{t('common.modelProvider.rerankModel.key')}</div>
-                  <div>
-                    <ModelSelector
-                      popClassName='!max-w-[100%] !w-full'
-                      value={rerankModel && { providerName: rerankModel.provider_name, modelName: rerankModel.model_name } as any}
-                      modelType={ModelType.reranking}
-                      onChange={(v) => {
-                        setTempDataSetConfigs({
-                          ...tempDataSetConfigs,
-                          reranking_model: {
-                            reranking_provider_name: v.model_provider.provider_name,
-                            reranking_model_name: v.model_name,
-                          },
-                        })
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className='mt-4 space-y-4'>
-                  <TopKItem
-                    value={tempDataSetConfigs.top_k}
-                    onChange={handleParamChange}
-                    enable={true}
-                  />
-                  <ScoreThresholdItem
-                    value={tempDataSetConfigs.score_threshold}
-                    onChange={handleParamChange}
-                    enable={tempDataSetConfigs.score_threshold_enabled}
-                    hasSwitch={true}
-                    onSwitchChange={handleSwitch}
-                  />
-                </div>
-              </>
-            )}
+            <ConfigContent
+              datasetConfigs={tempDataSetConfigs}
+              onChange={handleSetTempDataSetConfigs}
+              selectedDatasets={selectedDatasets}
+            />
+
             <div className='mt-6 flex justify-end'>
               <Button className='mr-2 flex-shrink-0' onClick={() => {
-                setOpen(false)
+                setTempDataSetConfigs(datasetConfigs)
+                setRerankSettingModalOpen(false)
               }}>{t('common.operation.cancel')}</Button>
-              <Button type='primary' className='flex-shrink-0' onClick={handleSave} >{t('common.operation.save')}</Button>
+              <Button variant='primary' className='flex-shrink-0' onClick={handleSave} >{t('common.operation.save')}</Button>
             </div>
           </Modal>
         )
